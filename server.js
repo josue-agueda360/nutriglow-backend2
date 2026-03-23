@@ -5,8 +5,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+
 app.use(cors());
 app.use(express.json({ limit: "20mb" }));
+
+app.get("/", (req, res) => {
+  res.json({ ok: true, mensaje: "Backend activo" });
+});
 
 app.post("/analizar-comida", async (req, res) => {
   try {
@@ -18,6 +23,12 @@ app.post("/analizar-comida", async (req, res) => {
       console.log("No se recibió imageBase64");
       return res.status(400).json({
         error: "No se recibió la imagen en base64.",
+      });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({
+        error: "Falta configurar OPENAI_API_KEY en las variables de entorno.",
       });
     }
 
@@ -52,7 +63,7 @@ Reglas:
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
         model: "gpt-4.1-mini",
@@ -67,14 +78,12 @@ Reglas:
               {
                 type: "input_image",
                 image_url: `data:image/jpeg;base64,${imageBase64}`,
-              }
-            ]
-          }
-        ]
+              },
+            ],
+          },
+        ],
       }),
     });
-
-    console.log("Respuesta recibida de OpenAI");
 
     const data = await response.json();
     console.log("JSON recibido:", data);
@@ -102,7 +111,6 @@ Reglas:
 
     console.log("Enviando resultado a Flutter...");
     return res.json(resultado);
-
   } catch (error) {
     console.log("Error interno:", error.message);
     return res.status(500).json({
