@@ -35,11 +35,10 @@ app.post("/analizar-comida", async (req, res) => {
     console.log("Imagen recibida correctamente");
     console.log("Enviando imagen a OpenAI...");
 
-    const prompt = `
-Analiza la imagen de comida y responde SOLO con JSON válido.
-No escribas texto antes ni después del JSON.
+const prompt = `
+Analiza la imagen.
 
-Formato exacto:
+Si la imagen contiene comida o bebida, responde SOLO con JSON válido usando este formato exacto:
 {
   "nombreComida": "string",
   "tipoComida": "string",
@@ -56,7 +55,18 @@ Reglas:
 - carbohidratos con formato como "35 g"
 - proteina con formato como "18 g"
 - grasas con formato como "12 g"
-- si no estás completamente seguro, da la estimación más razonable
+
+Si NO hay comida o bebida visible en la imagen, responde SOLO con este JSON exacto:
+{
+  "nombreComida": "No identificada",
+  "tipoComida": "Snack",
+  "calorias": "0 kcal",
+  "carbohidratos": "0 g",
+  "proteina": "0 g",
+  "grasas": "0 g"
+}
+
+No escribas texto antes ni después del JSON.
 `;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
