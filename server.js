@@ -95,20 +95,33 @@ Reglas:
       });
     }
 
-    const texto = data.output_text;
-    console.log("Texto devuelto por IA:", texto);
+const texto = data.output_text?.trim() || "";
+console.log("Texto devuelto por IA:", texto);
 
-    let resultado;
+let resultado;
 
+try {
+  resultado = JSON.parse(texto);
+} catch (e) {
+  // Intentar rescatar un JSON aunque venga con texto extra
+  const match = texto.match(/\{[\s\S]*\}/);
+
+  if (match) {
     try {
-      resultado = JSON.parse(texto);
-    } catch (e) {
+      resultado = JSON.parse(match[0]);
+    } catch (_) {
       return res.status(500).json({
         error: "La IA no devolvió JSON válido.",
         respuesta_cruda: texto,
       });
     }
-
+  } else {
+    return res.status(400).json({
+      error: "No se detectó comida claramente en la imagen o la IA respondió en formato no válido.",
+      respuesta_cruda: texto,
+    });
+  }
+}
     console.log("Enviando resultado a Flutter...");
     return res.json(resultado);
   } catch (error) {
