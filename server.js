@@ -20,7 +20,6 @@ app.post("/analizar-comida", async (req, res) => {
     const { imageBase64 } = req.body;
 
     if (!imageBase64) {
-      console.log("No se recibió imageBase64");
       return res.status(400).json({
         error: "No se recibió la imagen en base64.",
       });
@@ -32,16 +31,22 @@ app.post("/analizar-comida", async (req, res) => {
       });
     }
 
-    console.log("Imagen recibida correctamente");
-    console.log("Enviando imagen a OpenAI...");
-
     const prompt = `
-Analiza la imagen.
+Analiza la imagen y responde SOLO con JSON válido.
 
-Si la imagen contiene comida o bebida, responde SOLO con JSON válido usando este formato exacto:
+Debes intentar identificar comida o bebida aunque sea simple, por ejemplo:
+- arroz
+- pan
+- sopa
+- pollo
+- fruta
+- ensalada
+- bebida
+
+Formato exacto:
 {
   "nombreComida": "string",
-  "tipoComida": "string",
+  "tipoComida": "Desayuno | Almuerzo | Cena | Snack",
   "calorias": "string",
   "carbohidratos": "string",
   "proteina": "string",
@@ -50,13 +55,17 @@ Si la imagen contiene comida o bebida, responde SOLO con JSON válido usando est
 
 Reglas:
 - nombreComida en español
-- tipoComida debe ser: Desayuno, Almuerzo, Cena o Snack
+- tipoComida debe ser exactamente uno de estos: Desayuno, Almuerzo, Cena o Snack
 - calorias con formato como "450 kcal"
 - carbohidratos con formato como "35 g"
 - proteina con formato como "18 g"
 - grasas con formato como "12 g"
+- si no estás completamente seguro, da la estimación más razonable
+- NO escribas explicación
+- NO escribas texto antes o después
+- SOLO devuelve JSON
 
-Si NO hay comida o bebida visible en la imagen, responde SOLO con este JSON exacto:
+Si la imagen NO contiene comida o bebida visible, responde EXACTAMENTE con este JSON:
 {
   "nombreComida": "No identificada",
   "tipoComida": "Snack",
@@ -65,9 +74,9 @@ Si NO hay comida o bebida visible en la imagen, responde SOLO con este JSON exac
   "proteina": "0 g",
   "grasas": "0 g"
 }
-
-No escribas texto antes ni después del JSON.
 `;
+
+    console.log("Enviando imagen a OpenAI...");
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -97,7 +106,7 @@ No escribas texto antes ni después del JSON.
     });
 
     const data = await response.json();
-    console.log("JSON recibido:", data);
+    console.log("Respuesta cruda de OpenAI:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       return res.status(response.status).json({
@@ -119,7 +128,7 @@ No escribas texto antes ni después del JSON.
       if (match) {
         try {
           resultado = JSON.parse(match[0]);
-        } catch (_) {
+        } catch (errorParseInterno) {
           return res.status(500).json({
             error: "La IA no devolvió JSON válido.",
             respuesta_cruda: texto,
@@ -131,6 +140,20 @@ No escribas texto antes ni después del JSON.
           respuesta_cruda: texto,
         });
       }
+    }
+
+    if (
+      !resultado.nombreComida ||
+      !resultado.tipoComida ||
+      !resultado.calorias ||
+      !resultado.carbohidratos ||
+      !resultado.proteina ||
+      !resultado.grasas
+    ) {
+      return res.status(500).json({
+        error: "El JSON recibido está incompleto.",
+        respuesta_cruda: resultado,
+      });
     }
 
     console.log("Enviando resultado a Flutter...");
