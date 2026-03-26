@@ -35,7 +35,14 @@ app.post("/analizar-comida", async (req, res) => {
     console.log("Enviando imagen a OpenAI...");
 
     const prompt = `
-Analiza la imagen.
+Analiza la imagen con mucho detalle.
+
+Tu objetivo es identificar la comida de forma lo más específica posible.
+
+Ejemplos:
+- No digas solo "pollo" → di "pollo guisado", "pollo frito", "pollo en salsa"
+- No digas solo "arroz" → di "arroz blanco", "arroz con verduras", "arroz frito"
+- Incluye acompañamientos si los ves (verduras, salsa, etc.)
 
 Si la imagen contiene comida o bebida, responde SOLO con JSON válido usando este formato exacto:
 {
@@ -48,15 +55,12 @@ Si la imagen contiene comida o bebida, responde SOLO con JSON válido usando est
 }
 
 Reglas:
-- nombreComida en español
-- tipoComida debe ser exactamente uno de estos: Desayuno, Almuerzo, Cena o Snack
+- nombreComida debe ser lo más descriptivo posible (ej: "pollo guisado con verduras")
+- tipoComida debe ser: Desayuno, Almuerzo, Cena o Snack
 - calorias con formato como "450 kcal"
 - carbohidratos con formato como "35 g"
 - proteina con formato como "18 g"
 - grasas con formato como "12 g"
-- si no estás completamente seguro, da la estimación más razonable
-- no escribas explicación
-- no escribas texto antes ni después del JSON
 
 Si NO hay comida o bebida visible en la imagen, responde SOLO con este JSON exacto:
 {
@@ -67,6 +71,8 @@ Si NO hay comida o bebida visible en la imagen, responde SOLO con este JSON exac
   "proteina": "0 g",
   "grasas": "0 g"
 }
+
+No escribas texto antes ni después del JSON.
 `;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
