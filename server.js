@@ -35,7 +35,7 @@ app.post("/analizar-comida", async (req, res) => {
     console.log("Imagen recibida correctamente");
     console.log("Enviando imagen a OpenAI...");
 
-const prompt = `
+    const prompt = `
 Analiza la imagen.
 
 Si la imagen contiene comida o bebida, responde SOLO con JSON válido usando este formato exacto:
@@ -76,7 +76,7 @@ No escribas texto antes ni después del JSON.
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         input: [
           {
             role: "user",
@@ -88,6 +88,7 @@ No escribas texto antes ni después del JSON.
               {
                 type: "input_image",
                 image_url: `data:image/jpeg;base64,${imageBase64}`,
+                detail: "high",
               },
             ],
           },
@@ -105,33 +106,33 @@ No escribas texto antes ni después del JSON.
       });
     }
 
-const texto = data.output_text?.trim() || "";
-console.log("Texto devuelto por IA:", texto);
+    const texto = data.output_text?.trim() || "";
+    console.log("Texto devuelto por IA:", texto);
 
-let resultado;
+    let resultado;
 
-try {
-  resultado = JSON.parse(texto);
-} catch (e) {
-  // Intentar rescatar un JSON aunque venga con texto extra
-  const match = texto.match(/\{[\s\S]*\}/);
-
-  if (match) {
     try {
-      resultado = JSON.parse(match[0]);
-    } catch (_) {
-      return res.status(500).json({
-        error: "La IA no devolvió JSON válido.",
-        respuesta_cruda: texto,
-      });
+      resultado = JSON.parse(texto);
+    } catch (e) {
+      const match = texto.match(/\{[\s\S]*\}/);
+
+      if (match) {
+        try {
+          resultado = JSON.parse(match[0]);
+        } catch (_) {
+          return res.status(500).json({
+            error: "La IA no devolvió JSON válido.",
+            respuesta_cruda: texto,
+          });
+        }
+      } else {
+        return res.status(400).json({
+          error: "No se detectó comida claramente en la imagen o la IA respondió en formato no válido.",
+          respuesta_cruda: texto,
+        });
+      }
     }
-  } else {
-    return res.status(400).json({
-      error: "No se detectó comida claramente en la imagen o la IA respondió en formato no válido.",
-      respuesta_cruda: texto,
-    });
-  }
-}
+
     console.log("Enviando resultado a Flutter...");
     return res.json(resultado);
   } catch (error) {
