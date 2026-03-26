@@ -31,22 +31,16 @@ app.post("/analizar-comida", async (req, res) => {
       });
     }
 
+    console.log("Imagen recibida correctamente");
+    console.log("Enviando imagen a OpenAI...");
+
     const prompt = `
-Analiza la imagen y responde SOLO con JSON válido.
+Analiza la imagen.
 
-Debes intentar identificar comida o bebida aunque sea simple, por ejemplo:
-- arroz
-- pan
-- sopa
-- pollo
-- fruta
-- ensalada
-- bebida
-
-Formato exacto:
+Si la imagen contiene comida o bebida, responde SOLO con JSON válido usando este formato exacto:
 {
   "nombreComida": "string",
-  "tipoComida": "Desayuno | Almuerzo | Cena | Snack",
+  "tipoComida": "string",
   "calorias": "string",
   "carbohidratos": "string",
   "proteina": "string",
@@ -61,11 +55,10 @@ Reglas:
 - proteina con formato como "18 g"
 - grasas con formato como "12 g"
 - si no estás completamente seguro, da la estimación más razonable
-- NO escribas explicación
-- NO escribas texto antes o después
-- SOLO devuelve JSON
+- no escribas explicación
+- no escribas texto antes ni después del JSON
 
-Si la imagen NO contiene comida o bebida visible, responde EXACTAMENTE con este JSON:
+Si NO hay comida o bebida visible en la imagen, responde SOLO con este JSON exacto:
 {
   "nombreComida": "No identificada",
   "tipoComida": "Snack",
@@ -75,8 +68,6 @@ Si la imagen NO contiene comida o bebida visible, responde EXACTAMENTE con este 
   "grasas": "0 g"
 }
 `;
-
-    console.log("Enviando imagen a OpenAI...");
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -106,7 +97,7 @@ Si la imagen NO contiene comida o bebida visible, responde EXACTAMENTE con este 
     });
 
     const data = await response.json();
-    console.log("Respuesta cruda de OpenAI:", JSON.stringify(data, null, 2));
+    console.log("JSON recibido:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       return res.status(response.status).json({
@@ -115,8 +106,26 @@ Si la imagen NO contiene comida o bebida visible, responde EXACTAMENTE con este 
       });
     }
 
-    const texto = data.output_text?.trim() || "";
+    let texto = "";
+
+    if (data.output_text) {
+      texto = data.output_text.trim();
+    } else if (data.output && Array.isArray(data.output)) {
+      texto = data.output
+        .flatMap((item) => item.content || [])
+        .map((c) => c.text || "")
+        .join("")
+        .trim();
+    }
+
     console.log("Texto devuelto por IA:", texto);
+
+    if (!texto) {
+      return res.status(500).json({
+        error: "La IA no devolvió texto utilizable.",
+        respuesta_cruda: data,
+      });
+    }
 
     let resultado;
 
@@ -128,7 +137,7 @@ Si la imagen NO contiene comida o bebida visible, responde EXACTAMENTE con este 
       if (match) {
         try {
           resultado = JSON.parse(match[0]);
-        } catch (errorParseInterno) {
+        } catch (_) {
           return res.status(500).json({
             error: "La IA no devolvió JSON válido.",
             respuesta_cruda: texto,
@@ -136,7 +145,8 @@ Si la imagen NO contiene comida o bebida visible, responde EXACTAMENTE con este 
         }
       } else {
         return res.status(400).json({
-          error: "No se detectó comida claramente en la imagen o la IA respondió en formato no válido.",
+          error:
+            "No se detectó comida claramente en la imagen o la IA respondió en formato no válido.",
           respuesta_cruda: texto,
         });
       }
